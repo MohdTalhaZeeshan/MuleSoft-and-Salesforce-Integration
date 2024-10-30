@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:get-contacts-api="http://www.mulesoft.org/schema/mule/get-contacts-api" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/get-contacts-api http://www.mulesoft.org/schema/mule/get-contacts-api/current/mule-get-contacts-api.xsd">
+    <http:listener-config name="contactapi-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="contactapi-config" api="contactapi.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <db:config name="Database_Config" doc:name="Database Config" doc:id="ac68609f-e521-4ed3-8383-bf185be3abeb" >
+		<db:my-sql-connection host="sql12.freemysqlhosting.net" port="3306" user="sql12741484" password="WgaMVaD2ry" database="sql12741484" />
+	</db:config>
+	<api-gateway:autodiscovery apiId="20043017" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="8a5b76aa-0dff-40ac-b28a-098ed338ba89" flowRef="contactapi-main" />
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="da9bfd5b-2ea3-4be5-8c1e-1afcd1805325" >
+		<salesforce:basic-connection username="zeeshan.mohd@prowesssoft.com" password="DADth19@" securityToken="AXrN1MNKFadeuUo2q7Hf2BQh" url="https://login.salesforce.com/services/Soap/u/61.0" />
+	</salesforce:sfdc-config>
+	<get-contacts-api:config name="Get_Contacts_API_Config" doc:name="Get Contacts API Config" doc:id="28c19eda-5b33-47f9-8560-190b9a66e230" property_host="localhost" property_port="8081" property_basePath="/api" property_protocol="HTTP" property_responseTimeout="10000"/>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="f26aa47d-a476-4036-8bdb-9dd9f6968e95" basePath="/api" >
+		<http:request-connection protocol="HTTPS" host="salesforce-integration-a99atl.5sc6y6-3.usa-e2.cloudhub.io" port="443" />
+	</http:request-config>
+	<flow name="contactapi-main">
+        <http:listener config-ref="contactapi-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="contactapi-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="contactapi-console">
+        <http:listener config-ref="contactapi-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="contactapi-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\contacts:contactapi-config">
+        <db:select doc:name="Select" doc:id="be4f05c6-8b72-4118-99ee-446478ed47d2" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from contacts;]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="cad28584-8b49-4e15-99a8-cefd1cbf716c" >
+			<ee:message >
+				
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map (item,index)->
+{
+	firstName : item.FirstName , 
+	lastName : item.LastName  , 
+	Company : item.Company ,
+	Email : item.Email 
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" message="get:\contacts:contactapi-config" />
+    </flow>
+    <flow name="submitFlow">
+		<scheduler doc:name="Scheduler" doc:id="c4560e09-4cd5-4a97-9561-5ec7e5f2565c" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="20000"/>
+			</scheduling-strategy>
+		</scheduler>
+		<get-contacts-api:get-contacts doc:name="Get contacts" doc:id="d331428a-c87f-410a-a280-3b362d60f99b" config-ref="Get_Contacts_API_Config"/>
+		<ee:transform doc:name="Canonical format" doc:id="a28fdc47-8887-4f08-9af8-086a17b1b09e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload map ( item , index ) -> {
+	LastName: item.lastName,
+	FirstName: item.firstName,
+	Company: item.Company,
+	Email: item.Email
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create type="Lead" doc:name="Create records into Salesforce." doc:id="bd294698-8a43-4ef1-8a79-114ad614cc59" config-ref="Salesforce_Config"/>
+		<ee:transform doc:name="Response Map" doc:id="195bec58-7a4e-459e-a11d-fbb6b048d756" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" message='#["Successfully inserted."]' doc:name="After Salesforce insertion."/>
+    </flow>
+</mule>

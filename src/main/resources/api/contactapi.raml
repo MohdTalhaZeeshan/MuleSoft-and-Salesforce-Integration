@@ -1,0 +1,41 @@
+#%RAML 1.0
+types:
+  Contacts:
+    example:
+      strict: true
+      value:
+        firstName: Busha
+        lastName: Raju
+        Email: raju@gmail.com
+        Company: TechM
+    properties:
+      firstName?:
+        example: Example
+        type: string
+      lastName?:
+        example: Example
+        type: string
+      Email?:
+        example: Example
+        type: string
+      Company:
+        example: Example
+        type: string
+title: Get Contacts API
+baseUri: https://anypoint.mulesoft.com/mocking/api/v1/links/70f5d4c9-5fee-4e30-85f0-8d003ebd965c
+version: "1"
+protocols:
+  - HTTP
+  - HTTPS
+/contacts:
+  get:
+    responses:
+      "200":
+        body:
+          application/json:
+            items:
+              type: Contacts
+/submit:
+  get:
+    responses:
+      "200": {}
